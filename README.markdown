@@ -1,0 +1,1 @@
+This is a simple clone of Achtung die Kurve with Multiplayer support. Versions for iOS and Android will follow.

@@ -1,0 +1,21 @@
+#{extends 'main.html' /}
+#{set title:'Play Achtung die Kurve' /}
+#{set 'moreScripts'}
+#{script id:'sockets', src:'jquery.gracefulWebSocket.js', charset:'utf-8' /}
+#{script id:'game', src:'game.js', charset:'utf-8' /}
+<script type="text/javascript">
+<!--
+$(document).ready(function(){
+	play();
+});
+//-->
+</script>
+#{/set} 
+#{set 'moreStyles'}
+<style>
+    body, html { margin:0; padding: 0; overflow:hidden; font-family:Arial; font-size:20px; background-color:black}
+    #stage { border:2px solid yellow; margin:5px auto; color:white; position: relative; width:500px; height:500px; text-align: center}
+  </style>
+#{/set}
+
+<div id="stage"></div>
