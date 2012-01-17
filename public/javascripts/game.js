@@ -24,9 +24,9 @@ function Player (name, color, x , y) {
     
     // A of length 1 which represents the direction of the player
     // Use setDirection to modifiy
-    this.deltaX = Math.cos(1);
-    this.deltaY = Math.sin(1);
-    this.angle = 1;
+    this.deltaX = 0;
+    this.deltaY = 0;
+    this.setDirection(0);
     
     // Leave random gaps along the way
     this.drawLine = true;
@@ -42,7 +42,7 @@ Player.prototype.setDirection = function(angle) {
     this.deltaY = Math.sin(-angle);
 }
 
-var frameLength = 80;//Frame length in milliseconds
+var frameLength = 40;//Frame length in milliseconds
 Player.prototype.calculateNextFrame = function(timePassed) {
 	$("#controls").text(timePassed);
 	switch (this.movement) {
@@ -58,13 +58,13 @@ Player.prototype.calculateNextFrame = function(timePassed) {
 		break;
 	}
 	
-	this.x += this.deltaX*this.speed*4*(timePassed/frameLength);
-    this.y += this.deltaY*this.speed*4*(timePassed/frameLength);
+	this.x += this.deltaX*this.speed*2*(timePassed/frameLength);
+    this.y += this.deltaY*this.speed*2*(timePassed/frameLength);
     
     this.lastGap += timePassed;
 	if (this.drawLine) {
 		this.path.push([this.x, this.y]);
-		if (this.lastGap >= 1000) {// Care about the occasional gaps
+		if (this.lastGap >= 1000/this.speed) {// Care about the occasional gaps
 			if (Math.floor(Math.random()*10) % 3 == 0) {// 50% chance to get a gap
 				this.drawLine = false;
 				this.path.push(null);
@@ -95,7 +95,7 @@ Player.prototype.collision = function(paths) {
 				var divY = Math.pow(this.y - path[i][1], 2);
 				
 				var distance = divX + divY - this.radius;// Math.sqr(divX + divY) - this.radius
-				if (!(path === this.path && i > path.length - 30) && distance < minDistance2)
+				if (!(path === this.path && i > path.length - 25/this.speed) && distance < minDistance2)
 					return true;
 			}
 		}
@@ -161,12 +161,14 @@ LocalController.prototype.handleKeydown = function (code) {
 LocalController.prototype.handleKeyup = function (code) {
 	switch (code) {
 	case this.leftKeycode:
-		this.player.movement = move.straight;
+		if (this.player.movement == move.left)
+			this.player.movement = move.straight;
 		return true;
 		break;
 		
 	case this.rightKeycode:
-		this.player.movement = move.straight;
+		if (this.player.movement == move.right)
+			this.player.movement = move.straight;
 		return true;
 		break;
 
@@ -175,8 +177,6 @@ LocalController.prototype.handleKeyup = function (code) {
 		break;
 	}
 }
-
-
 
 var requestAnimationFrame = window.requestAnimationFrame || window.mozRequestAnimationFrame ||  
 window.webkitRequestAnimationFrame || window.msRequestAnimationFrame;  
@@ -277,6 +277,7 @@ function play(){
         var p = new Player("Red Simon", "red", 115, 200);
         world.addLocalPlayer(p);
         p.movement = move.left;
+        p.speed = 0.2;
         
         p = new Player("Yellow Pete", "yellow", 190, 30);
         p.setDirection(-Math.PI / 2)
