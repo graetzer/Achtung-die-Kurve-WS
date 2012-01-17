@@ -22,7 +22,7 @@ function Player (name, color, x , y) {
     this.path = new Array();
     this.path.push([x, y]);
     
-    // A of length 1 which represents the direction of the player
+    // A vector of length 1 which represents the direction of the player
     // Use setDirection to modifiy
     this.deltaX = 0;
     this.deltaY = 0;
@@ -31,8 +31,6 @@ function Player (name, color, x , y) {
     // Leave random gaps along the way
     this.drawLine = true;
     this.lastGap = 0;// In milliseconds since last time
-    
-    //
 }
 
 // Angle in a value between 0 and Math.PI*2
@@ -42,36 +40,38 @@ Player.prototype.setDirection = function(angle) {
     this.deltaY = Math.sin(-angle);
 }
 
-var frameLength = 40;//Frame length in milliseconds
+// Frame length in milliseconds. For keeping an linear speed
+// on different frame rates
+var frameLength = 40;
 Player.prototype.calculateNextFrame = function(timePassed) {
 	$("#controls").text(timePassed);
 	switch (this.movement) {
 	case move.left:
-		this.setDirection(this.angle + Math.PI/120);
+		this.setDirection(this.angle + Math.PI/80);
 		break;
 		
 	case move.right:
-		this.setDirection(this.angle - Math.PI/120);
+		this.setDirection(this.angle - Math.PI/80);
 		break;
 		
 	default:
 		break;
 	}
 	
-	this.x += this.deltaX*this.speed*2*(timePassed/frameLength);
-    this.y += this.deltaY*this.speed*2*(timePassed/frameLength);
+	this.x += this.deltaX*this.speed*3*(timePassed/frameLength);
+    this.y += this.deltaY*this.speed*3*(timePassed/frameLength);
     
     this.lastGap += timePassed;
 	if (this.drawLine) {
 		this.path.push([this.x, this.y]);
-		if (this.lastGap >= 1000/this.speed) {// Care about the occasional gaps
+		if (this.lastGap >= 750/this.speed) {// Care about the occasional gaps
 			if (Math.floor(Math.random()*10) % 3 == 0) {// 50% chance to get a gap
 				this.drawLine = false;
 				this.path.push(null);
 			}
 			this.lastGap = 0;
     	}
-	} else if (this.lastGap >= 300/this.speed){//The gaps should not increase through higher speed
+	} else if (this.lastGap >= 200/this.speed){//The gaps should not increase through higher speed
 		this.lastGap = 0;// TODO maybe the gap size should be measured in real length, instead of passed time
 		this.drawLine = true;
 	}
