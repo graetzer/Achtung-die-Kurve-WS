@@ -7,45 +7,84 @@ var move = {
 function Player (name, color, x , y) {
     this.name = name;
     this.color = color;
-    this.score = 0;
+    
     // The position
     this.x = x;
     this.y = y;
     
+    this.score = 0;
+    this.alive = true;
+    
     this.speed = 1;
-    this.size = 3;
-    this.direction = move.straight;
+    this.radius = 3;
+    this.movement = move.straight;
     
     this.path = new Array();
     this.path.push([x, y]);
     
-    this.deltaX = 1;
-    this.deltaY = 1;
+    // A of length 1 which represents the direction of the player
+    // Use setDirection to modifiy
+    this.deltaX = Math.cos(1);
+    this.deltaY = Math.sin(1);
+    this.angle = 1;
     
-    this.alive = true;
-    // Leave a gap
+    // Leave random gaps along the way
     this.drawLine = true;
-    this.lastGap = 0;
-}
-
-var frameLength = 30;
-Player.prototype.calculateNextFrame = function(timePassed) {
-	this.x += this.deltaX*this.speed*(timePassed/frameLength);
-    this.y += this.deltaY*this.speed*(timePassed/frameLength);
+    this.lastGap = 0;// In milliseconds since last time
     
-    if (this.drawLine)
-    	this.path.push([this.x, this.y]);
-    else
-    	this.path.push(null);
+    //
 }
 
-var maxDistance = 2.5;
-var maxDistance2 = maxDistance*maxDistance;
+// Angle in a value between 0 and Math.PI*2
+Player.prototype.setDirection = function(angle) {
+	this.angle = angle;
+	this.deltaX = Math.cos(-angle);
+    this.deltaY = Math.sin(-angle);
+}
+
+var frameLength = 80;//Frame length in milliseconds
+Player.prototype.calculateNextFrame = function(timePassed) {
+	$("#controls").text(timePassed);
+	switch (this.movement) {
+	case move.left:
+		this.setDirection(this.angle + Math.PI/120);
+		break;
+		
+	case move.right:
+		this.setDirection(this.angle - Math.PI/120);
+		break;
+		
+	default:
+		break;
+	}
+	
+	this.x += this.deltaX*this.speed*4*(timePassed/frameLength);
+    this.y += this.deltaY*this.speed*4*(timePassed/frameLength);
+    
+    this.lastGap += timePassed;
+	if (this.drawLine) {
+		this.path.push([this.x, this.y]);
+		if (this.lastGap >= 1000) {// Care about the occasional gaps
+			if (Math.floor(Math.random()*10) % 3 == 0) {// 50% chance to get a gap
+				this.drawLine = false;
+				this.path.push(null);
+			}
+			this.lastGap = 0;
+    	}
+	} else if (this.lastGap >= 300/this.speed){//The gaps should not increase through higher speed
+		this.lastGap = 0;// TODO maybe the gap size should be measured in real length, instead of passed time
+		this.drawLine = true;
+	}
+}
+
+var minDistance = 2.5;//Distance between 
+var minDistance2 = 10;
 // Returns true if it collides
 Player.prototype.collision = function(paths) {
-	if (this.x < maxDistance || this.x > world.width - maxDistance)
+	//Checking for world bounds
+	if (this.x - this.radius < 0 || this.x + this.radius > world.width)
 		return true;
-	if (this.y < maxDistance || this.y > world.height - maxDistance)
+	if (this.y - this.radius < 0 || this.y + this.radius > world.height)
 		return true;
 	
 	for (var y = 0; y < paths.length; y++) {
@@ -55,14 +94,12 @@ Player.prototype.collision = function(paths) {
 				var divX = Math.pow(this.x - path[i][0], 2);
 				var divY = Math.pow(this.y - path[i][1], 2);
 				
-				var distance = divX + divY;// Math.sqr(divX + divY) 
-				
-				if (!(path === this.path && i > path.length - 50) && distance < maxDistance2)
+				var distance = divX + divY - this.radius;// Math.sqr(divX + divY) - this.radius
+				if (!(path === this.path && i > path.length - 30) && distance < minDistance2)
 					return true;
 			}
 		}
 	}
-	
 	return false;
 }
 
@@ -70,7 +107,7 @@ Player.prototype.draw = function(ctx) {
     //Draw the path
     if (this.path) {
 	    ctx.beginPath();
-	    ctx.lineWidth = this.size*1.5 ;
+	    ctx.lineWidth = this.radius*1.5 ;
 	    ctx.strokeStyle = this.color;
 	    for(var i = 0; i < this.path.length - 1; i++) {
 	    	if (this.path[i] != null) {
@@ -91,14 +128,60 @@ Player.prototype.draw = function(ctx) {
     // Draw circle
     ctx.beginPath();
     ctx.fillStyle = "white";
-    ctx.arc(this.x,this.y,this.size,0,Math.PI*2,true); // Outer circle  
+    ctx.arc(this.x,this.y,this.radius,0,Math.PI*2,true); // Outer circle  
     ctx.fill();
     ctx.closePath();
 };
 
+// Handles keycodes for each player
+function LocalController(player, leftKeycode, rightKeycode) {
+	this.player = player;
+	this.leftKeycode = leftKeycode;
+	this.rightKeycode = rightKeycode;
+}
+
+LocalController.prototype.handleKeydown = function (code) {
+	switch (code) {
+	case this.leftKeycode:
+		this.player.movement = move.left;
+		return true;
+		break;
+		
+	case this.rightKeycode:
+		this.player.movement = move.right;
+		return true;
+		break;
+
+	default:
+		return false;
+		break;
+	}
+}
+
+LocalController.prototype.handleKeyup = function (code) {
+	switch (code) {
+	case this.leftKeycode:
+		this.player.movement = move.straight;
+		return true;
+		break;
+		
+	case this.rightKeycode:
+		this.player.movement = move.straight;
+		return true;
+		break;
+
+	default:
+		return false;
+		break;
+	}
+}
+
+
+
 var requestAnimationFrame = window.requestAnimationFrame || window.mozRequestAnimationFrame ||  
 window.webkitRequestAnimationFrame || window.msRequestAnimationFrame;  
 
+// World namespace
 var world = {
 	context: null,
 	width: null,
@@ -106,51 +189,77 @@ var world = {
 	
 	players: new Array(),
 	paths: new Array(),//Array of all paths in world.players[i].path
+	localControllers: new Array(),
+	
+	handleKeydown: function(e) {
+		for ( var int = 0; int < world.localControllers.length; int++) {
+			var controller = world.localControllers[int];
+			var code = e.keyCode || e.which;
+			if (controller.handleKeydown(code)) {
+				e.preventDefault();
+				break;
+			}
+		}
+	},
+	handleKeyup: function(e) {
+		for ( var int = 0; int < world.localControllers.length; int++) {
+			var controller = world.localControllers[int];
+			var code = e.keyCode || e.which;
+			if (controller.handleKeyup(code)) {
+				e.preventDefault();
+				break;
+			}
+		}
+	},
 	
 	lastTime: 0,
 	start: function () {
+		$(document).keydown(world.handleKeydown);
+		$(document).keyup(world.handleKeyup);
+		
+		//Handle animation time
 		if (window.mozAnimationStartTime)
 			world.lastTime = window.mozAnimationStartTime;
 		else
 			world.lastTime = Date.now();
 		
+		// Start
 		requestAnimationFrame(world.draw);
 	},
 	
 	draw: function (timestamp) {
-		if (world.context) {
-			var timePassed = timestamp - world.lastTime;
-			world.context.clearRect(0, 0, world.width, world.height);
-			
-			for (var i = 0; i < world.players.length; i++) {
-				var p = world.players[i];
-				if (p.alive) {
-					p.calculateNextFrame(timePassed);
-					p.alive = !p.collision(world.paths);
-					
-					// Care about the gaps
-					p.lastGap += timePassed;
-					if (p.drawLine) {
-						if (p.lastGap >= 1500) {
-							if (Math.floor(Math.random()*11) % 2 == 0)// 50% chance to get a gap after 1.5s 
-								p.drawLine = false;
-							p.lastGap = 0;
-				    	}
-					} else if (p.lastGap >= 300/p.speed){//The gaps should not increase through higher speed
-						p.lastGap = 0;// TODO maybe the gap size should be measured in real length, instead of passed time
-						p.drawLine = true;
-					}
-				}
-		    	p.draw(world.context);
+		var timePassed = timestamp - world.lastTime;
+		world.context.clearRect(0, 0, world.width, world.height);
+		
+		var playersAlive = 0;
+		for (var i = 0; i < world.players.length; i++) {
+			var p = world.players[i];
+			if (p.alive) {
+				p.calculateNextFrame(timePassed);
+				p.alive = !p.collision(world.paths);
+				playersAlive++;
 			}
-			
+	    	p.draw(world.context);
+		}
+		
+		if (playersAlive <= 1) {
+			var p;
+			for (var i = 0; i < world.players.length; i++) {
+				p = world.players[i];
+				if (p.alive)
+					break;
+			}
+			alert("Last player alive: "+ p.name);
+		} else {
 			world.lastTime = timestamp;
 	    	requestAnimationFrame(world.draw);
 		}
 	},
-	addPlayer: function (player) {
+	addLocalPlayer: function (player, controller) {
 		world.players.push(player);
-		world.paths.push(player.path);// Simplification
+		world.paths.push(player.path);
+		if (controller)
+			world.localControllers.push(controller);
 	}
 }
 
@@ -165,17 +274,19 @@ function play(){
     if (canvas.getContext) {
     	world.context = canvas.getContext('2d');
         
-        var p = new Player("Simon", "red", 10, 10);
-        world.addPlayer(p);
-        p = new Player("Simon", "yellow", 190, 30);
-        p.deltaX = -1;
-        p.deltaY = 1.7;
-        world.addPlayer(p);
-        p = new Player("Simon", "green", 290, 25);
-        p.deltaX = -1;
-        p.deltaY = 1.7;
-        p.speed = 2;
-        world.addPlayer(p);
+        var p = new Player("Red Simon", "red", 115, 200);
+        world.addLocalPlayer(p);
+        p.movement = move.left;
+        
+        p = new Player("Yellow Pete", "yellow", 190, 30);
+        p.setDirection(-Math.PI / 2)
+        var controller = new LocalController(p, 65, 83);
+        world.addLocalPlayer(p, controller);
+        
+        p = new Player("Green Mike", "green", 290, 25);
+        p.setDirection(-Math.PI*0.1);
+        controller = new LocalController(p, 37, 39);
+        world.addLocalPlayer(p, controller);
         
         world.start();
     } else {
