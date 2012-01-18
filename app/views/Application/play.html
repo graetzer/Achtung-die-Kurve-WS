@@ -2,16 +2,58 @@
 'moreScripts'} #{script id:'sockets', src:'jquery.gracefulWebSocket.js',
 charset:'utf-8' /} #{script id:'game', src:'game.js', charset:'utf-8' /}
 <script type="text/javascript">
-<!--
-	$(document).ready(function() {
-		play();
-	});
-//-->
+	var colors = [ "red", "green", "pink", "blue", "orange", "white" ];
+	var mock = '<li style="color: pl_color;">pl_name name: <input class="pl_input" type="text" size="15" style="background-color: pl_color;"/></li>';
+	$(document).ready(
+			function() {
+				//play();
+				$("#add_button").click(function(e) {
+					var list = $("#player_list");
+					var l = list.children().length;
+					//var value = mock.replace("pl_id", "pl_" + l);
+					var value = mock.replace("pl_name", "Player " + (l + 1));
+					value = value.replace(/pl_color/gi, colors[l]);
+					list.append(value);
+
+					if (l == colors.length - 1) {
+						$("#add_button").remove();
+					}
+				});
+
+				//var start = true;
+				$(document).keydown(
+						function(e) {
+							if (e.keyCode == 32) {
+								var nameInputs = $("#player_list").find(
+										"input.pl_input");
+								if (nameInputs.length < 2)
+									return;
+
+								var players = new Array();
+								for ( var i = 0; i < nameInputs.length
+										&& i < colors.length; i++) {
+									var value = nameInputs[i].value;
+									if (value == "")
+										return;
+									
+									players.push({
+										name : value,
+										color : colors[i]
+									});
+								}
+
+								play(players);// TODO
+							}
+						});
+
+				$("#add_button").click().click();
+			});
 </script>
 #{/set} #{set 'moreStyles'}
 <style>
 body,html {
-  width: 100%; margin : 0;
+  width: 100%;
+  margin: 0;
   padding: 0;
   overflow: hidden;
   font-family: Arial;
@@ -25,8 +67,8 @@ body,html {
   border: 2px solid yellow;
   margin: 5px auto;
   position: relative;
-  width: 500px;
-  height: 500px;
+  width: 700px;
+  height: 700px;
   float: left;
   margin-left: 7%;
 }
@@ -37,10 +79,24 @@ body,html {
   color: white;
   margin-left: 50px;
 }
+
+input.pl_input {
+  color: white;
+}
 </style>
 #{/set}
 
 <div id="stage"></div>
-<div id="controls">Controls</div>
-<div style="float: left; margin-top: 20px;">Control green with Left Right <br /> Control yellow with A and S</div>
+<div id="controls">
+  <div id="player">
+    <h3>Players</h3>
+    <form>
+      <ul id="player_list" style="list-style: none;">
+
+      </ul>
+      <input id="add_button" type="button" value="Add player" />
+    </form>
+    <div id="start_msg">Press Space to start</div>
+  </div>
+</div>
 <div style="clear: left;"></div>

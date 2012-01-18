@@ -1,3 +1,12 @@
+// Helper for using partially applied functions
+function curry (fn, scope) {
+    var scope = scope || window;
+    return function() {
+	    fn.apply(scope, arguments);
+    };
+}
+
+// Enum
 var move = {
 	straight: null,
 	left: 1337,
@@ -44,41 +53,44 @@ Player.prototype.setDirection = function(angle) {
 // on different frame rates
 var frameLength = 40;
 Player.prototype.calculateNextFrame = function(timePassed) {
-	$("#controls").text(timePassed);
+//	$("#controls").text(timePassed);
+	
+	var weight = (timePassed/frameLength)*2;//To reduce effect of different fps
 	switch (this.movement) {
 	case move.left:
-		this.setDirection(this.angle + Math.PI/80);
+		this.setDirection(this.angle + (Math.PI/80)*weight);
 		break;
 		
 	case move.right:
-		this.setDirection(this.angle - Math.PI/80);
+		this.setDirection(this.angle - (Math.PI/80)*weight);
 		break;
 		
 	default:
 		break;
 	}
 	
-	this.x += this.deltaX*this.speed*3*(timePassed/frameLength);
-    this.y += this.deltaY*this.speed*3*(timePassed/frameLength);
+	weight = this.speed*3*(timePassed/frameLength);
+	this.x += this.deltaX*weight;
+    this.y += this.deltaY*weight;
     
     this.lastGap += timePassed;
 	if (this.drawLine) {
 		this.path.push([this.x, this.y]);
-		if (this.lastGap >= 750/this.speed) {// Care about the occasional gaps
-			if (Math.floor(Math.random()*10) % 3 == 0) {// 50% chance to get a gap
+		if (this.lastGap >= 1000/this.speed) {// Care about the occasional gaps
+			if (Math.floor(Math.random()*11) % 3 == 0) {// 50% chance to get a gap
 				this.drawLine = false;
 				this.path.push(null);
 			}
 			this.lastGap = 0;
     	}
-	} else if (this.lastGap >= 200/this.speed){//The gaps should not increase through higher speed
+	} else if (this.lastGap >= 180/this.speed){//The gaps should not increase through higher speed
 		this.lastGap = 0;// TODO maybe the gap size should be measured in real length, instead of passed time
 		this.drawLine = true;
 	}
 }
 
-var minDistance = 2.5;//Distance between 
-var minDistance2 = 10;
+var minDistance = 5;//Distance between players
+var minDistance2 = minDistance*minDistance;
 // Returns true if it collides
 Player.prototype.collision = function(paths) {
 	//Checking for world bounds
@@ -107,7 +119,7 @@ Player.prototype.draw = function(ctx) {
     //Draw the path
     if (this.path) {
 	    ctx.beginPath();
-	    ctx.lineWidth = this.radius*1.5 ;
+	    ctx.lineWidth = this.radius*2;
 	    ctx.strokeStyle = this.color;
 	    for(var i = 0; i < this.path.length - 1; i++) {
 	    	if (this.path[i] != null) {
@@ -127,7 +139,7 @@ Player.prototype.draw = function(ctx) {
     
     // Draw circle
     ctx.beginPath();
-    ctx.fillStyle = "white";
+    ctx.fillStyle = "yellow";
     ctx.arc(this.x,this.y,this.radius,0,Math.PI*2,true); // Outer circle  
     ctx.fill();
     ctx.closePath();
@@ -181,116 +193,133 @@ LocalController.prototype.handleKeyup = function (code) {
 var requestAnimationFrame = window.requestAnimationFrame || window.mozRequestAnimationFrame ||  
 window.webkitRequestAnimationFrame || window.msRequestAnimationFrame;  
 
-// World namespace
-var world = {
-	context: null,
-	width: null,
-	height: null,
+// World
+function World (width, height, context) {
+	this.running = false;
+	this.width = width;
+	this.height = height;
+	this.context = context;
 	
-	players: new Array(),
-	paths: new Array(),//Array of all paths in world.players[i].path
-	localControllers: new Array(),
+	this.paused = false;
 	
-	handleKeydown: function(e) {
-		for ( var int = 0; int < world.localControllers.length; int++) {
-			var controller = world.localControllers[int];
+	this.players = new Array();
+	this.paths = new Array();//Array of all paths in this.players[i].path
+	this.localControllers = new Array();
+	
+	this.lastFrame = 0;
+	
+	this.handleKeydown = function(e) {
+		for ( var int = 0; int < this.localControllers.length; int++) {
+			var controller = this.localControllers[int];
 			var code = e.keyCode || e.which;
 			if (controller.handleKeydown(code)) {
 				e.preventDefault();
 				break;
 			}
 		}
-	},
-	handleKeyup: function(e) {
-		for ( var int = 0; int < world.localControllers.length; int++) {
-			var controller = world.localControllers[int];
+	}
+	
+	this.handleKeyup = function(e) {
+		for ( var int = 0; int < this.localControllers.length; int++) {
+			var controller = this.localControllers[int];
 			var code = e.keyCode || e.which;
 			if (controller.handleKeyup(code)) {
 				e.preventDefault();
 				break;
 			}
 		}
-	},
-	
-	lastTime: 0,
-	start: function () {
-		$(document).keydown(world.handleKeydown);
-		$(document).keyup(world.handleKeyup);
-		
-		//Handle animation time
-		if (window.mozAnimationStartTime)
-			world.lastTime = window.mozAnimationStartTime;
-		else
-			world.lastTime = Date.now();
-		
-		// Start
-		requestAnimationFrame(world.draw);
-	},
-	
-	draw: function (timestamp) {
-		var timePassed = timestamp - world.lastTime;
-		world.context.clearRect(0, 0, world.width, world.height);
-		
-		var playersAlive = 0;
-		for (var i = 0; i < world.players.length; i++) {
-			var p = world.players[i];
-			if (p.alive) {
-				p.calculateNextFrame(timePassed);
-				p.alive = !p.collision(world.paths);
-				playersAlive++;
-			}
-	    	p.draw(world.context);
-		}
-		
-		if (playersAlive <= 1) {
-			var p;
-			for (var i = 0; i < world.players.length; i++) {
-				p = world.players[i];
-				if (p.alive)
-					break;
-			}
-			alert("Last player alive: "+ p.name);
-		} else {
-			world.lastTime = timestamp;
-	    	requestAnimationFrame(world.draw);
-		}
-	},
-	addLocalPlayer: function (player, controller) {
-		world.players.push(player);
-		world.paths.push(player.path);
-		if (controller)
-			world.localControllers.push(controller);
-	}
+	};
 }
 
-function play(){
+World.prototype.start = function () {
+	this.running = true;
+	$(document).keydown(curry(this.handleKeydown, this));
+	$(document).keyup(curry(this.handleKeyup, this));
+	
+	//Handle animation time
+	if (window.mozAnimationStartTime)
+		this.lastFrame = window.mozAnimationStartTime;
+	else
+		this.lastFrame = Date.now();
+	
+	// Start
+	requestAnimationFrame(curry(this.draw, this));
+};
+
+World.prototype.stop = function () {
+	this.running = false;
+}
+
+World.prototype.draw = function (timestamp) {
+	if(!this.running)
+		return;
+	
+	var timePassed = timestamp - this.lastFrame;
+	this.context.clearRect(0, 0, this.width, this.height);
+	
+	var playersAlive = 0;
+	for (var i = 0; i < this.players.length; i++) {
+		var p = this.players[i];
+		if (p.alive) {
+			p.calculateNextFrame(timePassed);
+			p.alive = !p.collision(this.paths);
+			playersAlive++;
+		}
+    	p.draw(this.context);
+	}
+	
+	if (playersAlive <= 1) {
+		var p;
+		for (var i = 0; i < this.players.length; i++) {
+			p = this.players[i];
+			if (p.alive)
+				break;
+		}
+		alert("Last player alive: "+ p.name);
+	} else {
+		this.lastFrame = timestamp;
+    	requestAnimationFrame(curry(this.draw, this));
+	}
+};
+
+World.prototype.addLocalPlayer = function (player, controller) {
+	this.players.push(player);
+	this.paths.push(player.path);
+	if (controller)
+		this.localControllers.push(controller);
+};
+
+var world;
+function play(players){
+	if (world)
+		world.stop();
+	
 	var stage = $("#stage");
-	world.width = stage.css("width").replace(/[^0-9]+/g,'');
-	world.height = stage.css("height").replace(/[^0-9]+/g,'');
-    var elem = $("<canvas id='canvas' width="+ world.width +" height="+ world.height +"></canvas>")
-    stage.append(elem)
+	var width = parseInt(stage.css("width").replace(/[^0-9]+/g,''));
+	var height = parseInt(stage.css("height").replace(/[^0-9]+/g,''));
+    var elem = $("<canvas id='canvas' width="+ width +" height="+ height +"></canvas>")
+    stage.html(elem)
     
     var canvas = elem.get(0);
-    if (canvas.getContext) {
-    	world.context = canvas.getContext('2d');
-        
-        var p = new Player("Red Simon", "red", 115, 200);
-        world.addLocalPlayer(p);
-        p.movement = move.left;
-        p.speed = 0.2;
-        
-        p = new Player("Yellow Pete", "yellow", 190, 30);
-        p.setDirection(-Math.PI / 2)
-        var controller = new LocalController(p, 65, 83);
-        world.addLocalPlayer(p, controller);
-        
-        p = new Player("Green Mike", "green", 290, 25);
-        p.setDirection(-Math.PI*0.1);
-        controller = new LocalController(p, 37, 39);
-        world.addLocalPlayer(p, controller);
-        
-        world.start();
-    } else {
-      alert("Canvas not supported!");
+    if (!canvas.getContext) {
+        alert("Canvas not supported!");
+        return;
     }
+    	world = new World(width, height, canvas.getContext('2d'));
+        
+    	var keyL = [65, 37, 89];
+    	var keyR = [83, 39, 88]
+    	for ( var i = 0; i < players.length; i++) {
+    		var r = Math.floor(Math.random()*100);
+    		var x = (width/(players.length + 1))*(i+1);
+    		var y = (height/(players.length + 1))*(i+1);
+    		
+			var p = new Player(players[i].name, players[i].color, x + r, y + r);
+    		p.setDirection(Math.random()*2*Math.PI);
+			var c = new LocalController(p, keyL[i], keyR[i]);
+			world.addLocalPlayer(p, c);
+		}
+    	
+        world.start();
+        return world;
 }

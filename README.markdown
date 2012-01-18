@@ -1,1 +1,1 @@
-This is a simple clone of Achtung die Kurve with Multiplayer support. Versions for iOS and Android will follow.
+This is a simple javascript clone of the DOS classic "Achtung die Kurve" with Multiplayer support through websockets. Versions for iOS and Android will follow shortly.
