@@ -257,29 +257,36 @@ World.prototype.draw = function (timestamp) {
 	var timePassed = timestamp - this.lastFrame;
 	this.context.clearRect(0, 0, this.width, this.height);
 	
-	var playersAlive = 0;
+	
 	for (var i = 0; i < this.players.length; i++) {
 		var p = this.players[i];
+		p.draw(this.context);
 		if (p.alive) {
 			p.calculateNextFrame(timePassed);
 			p.alive = !p.collision(this.paths);
-			playersAlive++;
+			
+			
+			//Care about scores and the winning player
+			if (!p.alive) {
+				var otherPlayer;
+				var playersAlive = 0;
+				for (var i = 0; i < this.players.length; i++) {
+					otherPlayer = this.players[i];
+					if (otherPlayer.alive) {
+						otherPlayer.score += 10;
+						playersAlive++;
+					}
+				}
+				if (playersAlive <= 1 && otherPlayer.score >= (this.players.length-1)*10) {
+					alert("Konec hry\n: "+ otherPlayer.name + "Wins");
+					return;
+				}
+			}
 		}
-    	p.draw(this.context);
 	}
 	
-	if (playersAlive <= 1) {
-		var p;
-		for (var i = 0; i < this.players.length; i++) {
-			p = this.players[i];
-			if (p.alive)
-				break;
-		}
-		alert("Last player alive: "+ p.name);
-	} else {
-		this.lastFrame = timestamp;
-    	requestAnimationFrame(curry(this.draw, this));
-	}
+	this.lastFrame = timestamp;
+	requestAnimationFrame(curry(this.draw, this));
 };
 
 World.prototype.addLocalPlayer = function (player, controller) {
