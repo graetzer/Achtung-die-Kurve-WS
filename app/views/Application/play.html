@@ -4,26 +4,18 @@ charset:'utf-8' /} #{script id:'game', src:'game.js', charset:'utf-8' /}
 <script type="text/javascript">
 	var colors = [ "red", "green", "pink", "blue", "orange", "white" ];
 	var mock = '<li style="color: pl_color;">pl_name name: <input class="pl_input" type="text" size="15" style="background-color: pl_color;"/></li>';
-	$(document).ready(
-			function() {
-				//play();
-				$("#add_button").click(function(e) {
-					var list = $("#player_list");
-					var l = list.children().length;
-					//var value = mock.replace("pl_id", "pl_" + l);
-					var value = mock.replace("pl_name", "Player " + (l + 1));
-					value = value.replace(/pl_color/gi, colors[l]);
-					list.append(value);
+	$(document).ready(function() {
+				var list = $("#player_list");
+				for (var l = 0; l < colors.length; l++) {
+	                var value = mock.replace("pl_name", "Player " + (l + 1));
+	                value = value.replace(/pl_color/gi, colors[l]);
+	                list.append(value);
+				}
 
-					if (l == colors.length - 1) {
-						$("#add_button").remove();
-					}
-				});
-
-				//var start = true;
+				var start = true;
 				$(document).keydown(
 						function(e) {
-							if (e.keyCode == 32) {
+							if (e.keyCode == 32 && start) {
 								var nameInputs = $("#player_list").find(
 										"input.pl_input");
 								if (nameInputs.length < 2)
@@ -34,19 +26,22 @@ charset:'utf-8' /} #{script id:'game', src:'game.js', charset:'utf-8' /}
 										&& i < colors.length; i++) {
 									var value = nameInputs[i].value;
 									if (value == "")
-										return;
+										continue;
 									
 									players.push({
 										name : value,
 										color : colors[i]
 									});
 								}
-
-								play(players);// TODO
+								if (players.length >= 2) {
+									play(players);
+									start = false;
+								}
+									
+								
+								e.preventDefault();
 							}
 						});
-
-				$("#add_button").click().click();
 			});
 </script>
 #{/set} #{set 'moreStyles'}
@@ -94,7 +89,6 @@ input.pl_input {
       <ul id="player_list" style="list-style: none;">
 
       </ul>
-      <input id="add_button" type="button" value="Add player" />
     </form>
     <div id="start_msg">Press Space to start</div>
   </div>

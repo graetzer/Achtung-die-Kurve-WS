@@ -13,13 +13,13 @@ var move = {
 	right: 1338
 };
 
-function Player (name, color, x , y) {
+function Player (name, color) {
     this.name = name;
     this.color = color;
     
     // The position
-    this.x = x;
-    this.y = y;
+    this.x = 0;
+    this.y = 0;
     
     this.score = 0;
     this.alive = true;
@@ -28,8 +28,7 @@ function Player (name, color, x , y) {
     this.radius = 3;
     this.movement = move.straight;
     
-    this.path = new Array();
-    this.path.push([x, y]);
+    this.path = null;
     
     // A vector of length 1 which represents the direction of the player
     // Use setDirection to modifiy
@@ -117,25 +116,23 @@ Player.prototype.collision = function(paths) {
 
 Player.prototype.draw = function(ctx) {    
     //Draw the path
-    if (this.path) {
-	    ctx.beginPath();
-	    ctx.lineWidth = this.radius*2;
-	    ctx.strokeStyle = this.color;
-	    for(var i = 0; i < this.path.length - 1; i++) {
-	    	if (this.path[i] != null) {
-	    		var x = this.path[i][0];
-	            var y = this.path[i][1];
-	            ctx.lineTo(x, y);
-	    	} else if (this.path[i+1] != null){// Leave a gap
-	    		i++;
-	    		var x = this.path[i][0];
-	            var y = this.path[i][1];
-	            ctx.moveTo(x, y);
-	    	}
-	    }
-	    ctx.stroke();
-	    ctx.closePath();
+    ctx.beginPath();
+    ctx.lineWidth = this.radius*2;
+    ctx.strokeStyle = this.color;
+    for(var i = 0; i < this.path.length - 1; i++) {
+    	if (this.path[i] != null) {
+    		var x = this.path[i][0];
+            var y = this.path[i][1];
+            ctx.lineTo(x, y);
+    	} else if (this.path[i+1] != null){// Leave a gap
+    		i++;
+    		var x = this.path[i][0];
+            var y = this.path[i][1];
+            ctx.moveTo(x, y);
+    	}
     }
+    ctx.stroke();
+    ctx.closePath();
     
     // Draw circle
     ctx.beginPath();
@@ -191,17 +188,21 @@ LocalController.prototype.handleKeyup = function (code) {
 }
 
 var requestAnimationFrame = window.requestAnimationFrame || window.mozRequestAnimationFrame ||  
-window.webkitRequestAnimationFrame || window.msRequestAnimationFrame;  
+window.webkitRequestAnimationFrame || window.msRequestAnimationFrame;
+
+var runStatus = {
+		notRunning: 0,
+		running: 1,
+		paused: 2
+};
 
 // World
-function World (width, height, context) {
-	this.running = false;
-	this.width = width;
-	this.height = height;
+function World (context) {
+	this.status = runStatus.notRunning;
+	this.width = context.canvas.width;
+	this.height = context.canvas.height;
 	this.context = context;
-	
-	this.paused = false;
-	
+		
 	this.players = new Array();
 	this.paths = new Array();//Array of all paths in this.players[i].path
 	this.localControllers = new Array();
@@ -209,9 +210,16 @@ function World (width, height, context) {
 	this.lastFrame = 0;
 	
 	this.handleKeydown = function(e) {
+		var code = e.keyCode || e.which;
+		if (code == 32 && this.status != runStatus.notRunning) {
+			this.pause();
+			e.preventDefault();
+		} else if (code == 32 && this.status == runStatus.notRunning) {
+			this.start();
+			e.preventDefault();
+		}
 		for ( var int = 0; int < this.localControllers.length; int++) {
 			var controller = this.localControllers[int];
-			var code = e.keyCode || e.which;
 			if (controller.handleKeydown(code)) {
 				e.preventDefault();
 				break;
@@ -220,67 +228,86 @@ function World (width, height, context) {
 	}
 	
 	this.handleKeyup = function(e) {
+		var code = e.keyCode || e.which;
 		for ( var int = 0; int < this.localControllers.length; int++) {
 			var controller = this.localControllers[int];
-			var code = e.keyCode || e.which;
 			if (controller.handleKeyup(code)) {
 				e.preventDefault();
 				break;
 			}
 		}
 	};
-}
-
-World.prototype.start = function () {
-	this.running = true;
+	
 	$(document).keydown(curry(this.handleKeydown, this));
 	$(document).keyup(curry(this.handleKeyup, this));
+}
+
+World.prototype.prepareStart = function () {
+	var pX = this.width/(this.players.length + 1);
+	var pY = this.height/(this.players.length + 1);
+	for ( var i = 0; i < this.players.length; i++) {
+		var r = Math.floor(Math.random()*100);
+		var x = pX*(i+1);
+		var y = pY*(i+1);
+		
+		var p = this.players[i];
+		p.x = x+r;
+		p.y = y+r;
+		p.setDirection(Math.random()*2*Math.PI);
+		p.path = new Array();
+		p.alive = true;
+		this.paths[i] = p.path;
+	}
+};
+
+World.prototype.start = function () {
+	if (this.status == runStatus.notRunning) { // If it's a new round
+		this.prepareStart();
+	}
+	
+	this.status = runStatus.running;
 	
 	//Handle animation time
 	if (window.mozAnimationStartTime)
 		this.lastFrame = window.mozAnimationStartTime;
 	else
 		this.lastFrame = Date.now();
-	
+
 	// Start
 	requestAnimationFrame(curry(this.draw, this));
 };
 
-World.prototype.stop = function () {
-	this.running = false;
-}
+World.prototype.pause = function() {
+	if (this.status == runStatus.running) {
+		this.status = runStatus.paused;
+		
+		this.context.font = "40pt Arial";
+		this.context.fillStyle = "Yellow";
+		var text = "Paused";
+		var textWidth = this.context.measureText(text).width;
+		this.context.fillText(text, (this.width-textWidth)/2, this.height/2)
+	} else if (this.status == runStatus.paused) {
+		this.start();
+	}
+};
 
 World.prototype.draw = function (timestamp) {
-	if(!this.running)
+	if(this.status != runStatus.running)
 		return;
 	
 	var timePassed = timestamp - this.lastFrame;
 	this.context.clearRect(0, 0, this.width, this.height);
 	
-	
 	for (var i = 0; i < this.players.length; i++) {
 		var p = this.players[i];
 		p.draw(this.context);
+		
 		if (p.alive) {
 			p.calculateNextFrame(timePassed);
 			p.alive = !p.collision(this.paths);
-			
-			
 			//Care about scores and the winning player
 			if (!p.alive) {
-				var otherPlayer;
-				var playersAlive = 0;
-				for (var i = 0; i < this.players.length; i++) {
-					otherPlayer = this.players[i];
-					if (otherPlayer.alive) {
-						otherPlayer.score += 10;
-						playersAlive++;
-					}
-				}
-				if (playersAlive <= 1 && otherPlayer.score >= (this.players.length-1)*10) {
-					alert("Konec hry\n: "+ otherPlayer.name + "Wins");
-					return;
-				}
+				this.calcScores();
 			}
 		}
 	}
@@ -289,15 +316,40 @@ World.prototype.draw = function (timestamp) {
 	requestAnimationFrame(curry(this.draw, this));
 };
 
+World.prototype.calcScores = function () {
+	var player;
+	var playersAlive = 0;
+	for (var i = 0; i < this.players.length; i++) {
+		if (this.players[i].alive) {
+			player = this.players[i];
+			player.score += 10;
+			playersAlive++;
+		}
+	}
+	if (playersAlive <= 1) {
+		this.status = runStatus.notRunning;
+		if (player.score >= (this.players.length-1)*10) {
+			this.context.font = "40pt Arial";
+			this.context.fillStyle = "Yellow";
+			var text = "Konec hry\n";
+			var textWidth = this.context.measureText(text).width;
+			this.context.fillText(text, (this.width-textWidth)/2, this.height/2)
+			text = player.name + " Wins!"
+			var textWidth = this.context.measureText(text).width;
+			this.context.font = "30pt Arial";
+			this.context.fillText(text, (this.width-textWidth)/2, this.height/2 + 60)
+		}
+	}
+}
+
 World.prototype.addLocalPlayer = function (player, controller) {
 	this.players.push(player);
-	this.paths.push(player.path);
 	if (controller)
 		this.localControllers.push(controller);
 };
 
 var world;
-function play(players){
+function play(players, updateFn){
 	if (world)
 		world.stop();
 	
@@ -312,17 +364,12 @@ function play(players){
         alert("Canvas not supported!");
         return;
     }
-    	world = new World(width, height, canvas.getContext('2d'));
+    	world = new World(canvas.getContext('2d'));
         
     	var keyL = [65, 37, 89];
     	var keyR = [83, 39, 88]
     	for ( var i = 0; i < players.length; i++) {
-    		var r = Math.floor(Math.random()*100);
-    		var x = (width/(players.length + 1))*(i+1);
-    		var y = (height/(players.length + 1))*(i+1);
-    		
-			var p = new Player(players[i].name, players[i].color, x + r, y + r);
-    		p.setDirection(Math.random()*2*Math.PI);
+			var p = new Player(players[i].name, players[i].color);
 			var c = new LocalController(p, keyL[i], keyR[i]);
 			world.addLocalPlayer(p, c);
 		}
