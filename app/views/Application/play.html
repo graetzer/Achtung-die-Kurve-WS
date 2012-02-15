@@ -2,95 +2,167 @@
 'moreScripts'} #{script id:'sockets', src:'jquery.gracefulWebSocket.js',
 charset:'utf-8' /} #{script id:'game', src:'game.js', charset:'utf-8' /}
 <script type="text/javascript">
-	var colors = [ "red", "green", "pink", "blue", "orange", "white" ];
-	var mock = '<li style="color: pl_color;">pl_name name: <input class="pl_input" type="text" size="15" style="background-color: pl_color;"/></li>';
-	$(document).ready(function() {
-				var list = $("#player_list");
-				for (var l = 0; l < colors.length; l++) {
-	                var value = mock.replace("pl_name", "Player " + (l + 1));
-	                value = value.replace(/pl_color/gi, colors[l]);
-	                list.append(value);
+	var colors = ["red", "green", "pink", "blue", "orange", "white"];
+	var mock = "<li style=\"color: pl_color;\" tabindex=\"pl_id\">Player pl_color<span class\"key\"></span><span class\"key\"></span></li>";
+	var players = new Array();
+
+	jQuery.fn.extend({
+		selectText : function() {
+			var text = $(this)[0];
+			if($.browser.msie) {
+				var range = document.body.createTextRange();
+				range.moveToElementText(text);
+				range.select();
+			} else if($.browser.mozilla || $.browser.opera) {
+				var selection = window.getSelection();
+				var range = document.createRange();
+				range.selectNodeContents(text);
+				selection.removeAllRanges();
+				selection.addRange(range);
+			} else if($.browser.safari) {
+				var selection = window.getSelection();
+				selection.setBaseAndExtent(text, 0, text, 1);
+			}
+			return $(this);
+		}
+	})
+
+	function initial_scene() {
+		var list = $("#player_list");
+		list.children().detach();
+		players = new Array();
+		for(var l = 0; l < colors.length; l++) {
+			var value = mock.replace("pl_id", l);
+			value = value.replace(/pl_color/gi, colors[l]);
+			list.append(value);
+		}
+
+		var selected = {index:0, side:0, player:null};
+		
+		var lock = false;
+		$('#player_list li').click(function(e) {
+			if(!lock) {
+				lock = true;
+				$(this).css('opacity', 1.0);
+				selected.index = parseInt($(this).attr("tabindex"));
+				var el = $(this).find('span');
+				el.eq(0).text("Press left key").css("color", "yellow").selectText();
+				selected.side = "left";
+				selected.player = {
+					name: colors[selected.index],
+					color: colors[selected.index],
+					left:0,
+					right:0
+				};
+			}
+		});
+		// Care about the actual keyinput
+		var start = true;
+		$(document).keydown(function(e) {
+			var code = e.keyCode || e.which;
+			if(code == 32) {//Start the game
+				if(!start || players.lenght < 2)
+					return;
+				start = false;
+				var stage = $("#stage");
+				var width = parseInt(stage.css("width").replace(/[^0-9]+/g, ''));
+				var height = parseInt(stage.css("height").replace(/[^0-9]+/g, ''));
+				var elem = $("<canvas id='canvas' width=" + width + " height=" + height + "></canvas>");
+				stage.html(elem);
+
+				var canvas = elem.get(0);
+				if(!canvas.getContext) {
+					alert("Canvas not supported!");
+					return;
 				}
 
-				var start = true;
-				$(document).keydown(
-						function(e) {
-							if (e.keyCode == 32 && start) {
-								var nameInputs = $("#player_list").find(
-										"input.pl_input");
-								if (nameInputs.length < 2)
-									return;
+				play(canvas.getContext('2d'), players, function(world) {
+					//Update the interface
+				});
+				e.preventDefault();
+			} else if(lock) {// Assign key to a user
+				var el = $('#player_list li').eq(selected.index);
+				if(selected.side == "left") {
+					el.find('span').eq(0).text(String.fromCharCode(code)).css('color', 'white');
+					el.find('span').eq(1).text("Press right key").css("color", "yellow").selectText();
+					selected.player.left = code;
+					selected.side = "right";
+					e.preventDefault();
+				} else if(selected.side == "right") {
+					el.css('color', 'white');
+					el.find('span').eq(1).css('color', 'white').text(String.fromCharCode(code));
+					selected.player.right = code;
+					players.push(selected.player);
+					lock = false;
+					e.preventDefault();
+				}
+			}
+		});
+	}
 
-								var players = new Array();
-								for ( var i = 0; i < nameInputs.length
-										&& i < colors.length; i++) {
-									var value = nameInputs[i].value;
-									if (value == "")
-										continue;
-									
-									players.push({
-										name : value,
-										color : colors[i]
-									});
-								}
-								if (players.length >= 2) {
-									play(players);
-									start = false;
-								}
-									
-								
-								e.preventDefault();
-							}
-						});
-			});
+
+	$(document).ready(function() {
+		initial_scene();
+	});
+
 </script>
 #{/set} #{set 'moreStyles'}
 <style>
-body,html {
-  width: 100%;
-  margin: 0;
-  padding: 0;
-  overflow: hidden;
-  font-family: Arial;
-  font-size: 20px;
-  background-color: black;
-  color: white;
-  margin: 0;
-}
-
-#stage {
-  border: 2px solid yellow;
-  margin: 5px auto;
-  position: relative;
-  width: 700px;
-  height: 700px;
-  float: left;
-  margin-left: 7%;
-}
-
-#controls {
-  position: relative;
-  float: left;
-  color: white;
-  margin-left: 50px;
-}
-
-input.pl_input {
-  color: white;
-}
+	body, html {
+		width: 100%;
+		margin: 0;
+		padding: 0;
+		overflow: hidden;
+		font-family: Arial;
+		font-size: 20px;
+		background-color: black;
+		color: white;
+		margin: 0;
+	}
+	#stage {
+		border: 2px solid yellow;
+		margin: 5px auto;
+		position: relative;
+		width: 700px;
+		height: 700px;
+		float: left;
+		margin-left: 20px;
+	}
+	#controls {
+		position: relative;
+		float: left;
+		color: white;
+		margin-left: 25px;
+		width: 500px;
+	}
+	#player_list {
+		border: 1px white solid;
+		padding: 1px;
+	}
+	#player_list li {
+		opacity: 0.7;
+		padding: 10px;
+	}
+	#player_list li:nth-child(even) {
+		background-color: #A8A8A8;
+	}
+	#player_list li span {
+		position: relative;
+		margin: 0 0 0 30px;
+		color: white;
+		opacity: 0.5;
+	}
 </style>
-#{/set}
-
-<div id="stage"></div>
+#{/set} <div id="stage"></div>
 <div id="controls">
-  <div id="player">
-    <h3>Players</h3>
-    <form>
-      <ul id="player_list" style="list-style: none;">
-
-      </ul>
-    </form>
-    <div id="start_msg">Press Space to start</div>
-  </div>
+	<h1>Players</h1>
+	Click on player to activate
+	<form>
+		<ul id="player_list" style="list-style: none;"></ul>
+		<div style="clear: right;"></div>
+	</form>
+	<div id="start_msg">
+		Press Space to start
+	</div>
 </div>
 <div style="clear: left;"></div>
