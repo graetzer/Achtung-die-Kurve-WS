@@ -6,6 +6,12 @@ function curry(fn, scope) {
 	};
 }
 
+shuffle = function(o){ //v1.0
+	for(var j, x, i = o.length; i; j = parseInt(Math.random() * i), x = o[--i], o[i] = o[j], o[j] = x);
+	return o;
+};
+
+
 // Enum
 var move = {
 	straight : null,
@@ -236,18 +242,20 @@ function World(context, updateInterfaceFn) {
 		e.preventDefault();
 	};
 
+	$(document).off();
 	$(document).keydown(curry(handleKeydown, this));
 	$(document).keyup(curry(handleKeyup, this));
 }
 
 World.prototype.prepareStart = function() {
+	var players = shuffle(this.players.slice());
 	this.status = runStatus.ready;
 	this.context.clearRect(0, 0, this.width, this.height);
-	var pX = this.width / (this.players.length + 1);
-	var pY = this.height / (this.players.length + 1);
-	var div = Math.min(this.width, this.height)/(this.players.length + 3);
-	for(var i = 0; i < this.players.length; i++) {
-		var p = this.players[i];
+	var pX = this.width / (players.length + 1);
+	var pY = this.height / (players.length + 1);
+	var div = Math.min(this.width, this.height)/(players.length + 3);
+	for(var i = 0; i < players.length; i++) {
+		var p = players[i];
 		var r = Math.floor((Math.random() - 0.5) * div);
 		p.x = pX * (i + 1) + r;
 		p.y = pY * (i + 1) + r;
@@ -323,7 +331,9 @@ World.prototype.animate = function(timestamp) {
 	if (alive <= 1) {
 		this.status = runStatus.notRunning;
 		this.round++;
-		if (this.round > this.players.length*2) {
+		var l = this.players.length;
+		// The difference must be more than 20 points
+		if (this.round > l*2 && this.players[0].score >= this.players[1].score + 20) {
 			this.showWinner(winner);
 		}
 		
@@ -341,6 +351,7 @@ World.prototype.increaseScores = function() {
 			this.players[i].score += 10;
 		}
 	}
+	this.players.sort(function (a,b) {return b.score - a.score;});
 	this.updateInterfaceFn(this);
 	return false;
 	//Continue

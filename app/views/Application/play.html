@@ -1,6 +1,8 @@
-#{extends 'main.html' /} #{set title:'Play Achtung die Kurve' /} #{set
-'moreScripts'} #{script id:'sockets', src:'jquery.gracefulWebSocket.js',
-charset:'utf-8' /} #{script id:'game', src:'game.js', charset:'utf-8' /}
+#{extends 'main.html' /}
+#{set title:'Play Achtung die Kurve' /}
+#{set 'moreScripts'}
+#{script id:'sockets', src:'jquery.gracefulWebSocket.js', charset:'utf-8' /}
+#{script id:'game', src:'game.js', charset:'utf-8' /}
 <script type="text/javascript">
 
 
@@ -25,28 +27,30 @@ charset:'utf-8' /} #{script id:'game', src:'game.js', charset:'utf-8' /}
 		}
 	})
 	
-	function update_scores(world, reset) {
-		if (reset) {
-			initial_scene();
-			return;
-		}
+	function update_scores(world) {
 		
 		var mock = "<li style=\"color: pl_color;\" tabindex=\"pl_id\">pl_name<span class\"key\">pl_score</span></li>";
 		var list = $("#player_list");
-		var players = world.players.slice();
 		list.children().detach();
 		
-		players.sort(function (a,b) {return b.score - a.score;});
-		
-		for(var l = 0; l < players.length; l++) {
-			var player = players[l];
+		for(var l = 0; l < world.players.length; l++) {
+			var player = world.players[l];
 			var value = mock.replace("pl_id", l);
 			value = value.replace("pl_name", player.name);
 			value = value.replace("pl_score", player.score);
 			value = value.replace(/pl_color/gi, player.color);
 			list.append(value);
 		}
-		$('#info_text').text("Round: " + world.round + " of " + players.length*2);
+		$('#info_text').text("Round: " + world.round)
+		.append('<br/>To win you have to play at least ' + world.players.length + ' rounds, and need 20 points lead');
+	}
+	
+	function keyIsUsed(players, key) {
+		for (var i=0; i < players.length; i++) {
+		  if(players[i].left == key || players[i].right == key)
+		  	return true;
+		};
+		return false;
 	}
 
 	function initial_scene() {
@@ -80,16 +84,21 @@ charset:'utf-8' /} #{script id:'game', src:'game.js', charset:'utf-8' /}
 					left:0,
 					right:0
 				};
+				for (var i=0; i < players.length; i++) {
+					if (players[i].name == selected.player.name){ 
+						players.splice(i,1);
+						break;
+					}
+				};
 			}
 		});
 		// Care about the actual keyinput
-		var start = true;
 		$(document).keydown(function(e) {
 			var code = e.keyCode || e.which;
 			if(code == 32) {//Start the game
-				if(!start || players.length < 2)
+				if(lock || players.length < 2)
 					return;
-				start = false;
+					
 				var stage = $("#stage");
 				var width = parseInt(stage.css("width").replace(/[^0-9]+/g, ''));
 				var height = parseInt(stage.css("height").replace(/[^0-9]+/g, ''));
@@ -103,36 +112,21 @@ charset:'utf-8' /} #{script id:'game', src:'game.js', charset:'utf-8' /}
 				}
 
 				play(canvas.getContext('2d'), players, update_scores);
-				e.preventDefault();
-			} else if(lock) {// Assign key to a user
+			} else if(lock && !keyIsUsed(players, code)) {// Assign key to a user
 				var el = $('#player_list li').eq(selected.index);
 				if(selected.side == "left") {
 					el.find('span').eq(0).text(String.fromCharCode(code)).css('color', 'white');
 					el.find('span').eq(1).text("Press right key").css("color", "yellow").selectText();
 					selected.player.left = code;
 					selected.side = "right";
-					e.preventDefault();
-				} else if(selected.side == "right") {
+				} else if(selected.side == "right" && code != selected.player.left) {
 					el.find('span').eq(1).css('color', 'white').text(String.fromCharCode(code));
 					selected.player.right = code;
-					
-					if ( players.length == 0)
-						players.push(selected.player);
-						
-					for (var i=0; i < players.length; i++) {
-						var player = players[i];
-						if (player.name == selected.player.name){ 
-							players[i] = selected.player;
-							break;
-						} else if ((i + 1) == players.length) {
-							players.push(selected.player);
-						}
-					};
-					
+					players.push(selected.player);
 					lock = false;
-					e.preventDefault();
 				}
 			}
+			e.preventDefault();
 		});
 	}
 
@@ -141,18 +135,22 @@ charset:'utf-8' /} #{script id:'game', src:'game.js', charset:'utf-8' /}
 	});
 
 </script>
-#{/set} #{set 'moreStyles'}
+#{/set} 
+#{set 'moreStyles'}
 <style>
 	body, html {
 		width: 100%;
 		margin: 0;
 		padding: 0;
 		overflow: hidden;
-		font-family: Arial;
-		font-size: 20px;
+		font-family: Helvetica;
+		font-size: 15px;
 		background-color: black;
 		color: white;
-		margin: 0;
+	}
+	h1 {
+		font-size: 20px;
+		margin: 20px 0 20px 0;
 	}
 	#stage {
 		border: 2px solid yellow;
@@ -178,7 +176,7 @@ charset:'utf-8' /} #{script id:'game', src:'game.js', charset:'utf-8' /}
 		padding: 10px;
 	}
 	#player_list li:nth-child(even) {
-		background-color: #A8A8A8;
+		background-color: #000033;
 	}
 	#player_list li span {
 		width:30px;
@@ -188,14 +186,14 @@ charset:'utf-8' /} #{script id:'game', src:'game.js', charset:'utf-8' /}
 </style>
 #{/set} <div id="stage"></div>
 <div id="controls">
-	<h4>Achtung die Kurve!</h4>
-	<div id="info_text">Click on player to activate</div>
+	<h1>Achtung die Kurve!</h1>
+	<div id="info_text">Click on a player to choose keys</div>
 	<form>
 		<ul id="player_list" style="list-style: none;"></ul>
 		<div style="clear: right;"></div>
 	</form>
 	<div id="start_msg">
-		Press Space to start
+		Press Space to start/pause
 	</div>
 </div>
 <div style="clear: left;"></div>
