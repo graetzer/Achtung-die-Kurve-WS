@@ -2,9 +2,7 @@
 'moreScripts'} #{script id:'sockets', src:'jquery.gracefulWebSocket.js',
 charset:'utf-8' /} #{script id:'game', src:'game.js', charset:'utf-8' /}
 <script type="text/javascript">
-	var colors = ["red", "green", "pink", "blue", "orange", "white"];
-	var mock = "<li style=\"color: pl_color;\" tabindex=\"pl_id\">Player pl_color<span class\"key\"></span><span class\"key\"></span></li>";
-	var players = new Array();
+
 
 	jQuery.fn.extend({
 		selectText : function() {
@@ -26,13 +24,41 @@ charset:'utf-8' /} #{script id:'game', src:'game.js', charset:'utf-8' /}
 			return $(this);
 		}
 	})
+	
+	function update_scores(world, reset) {
+		if (reset) {
+			initial_scene();
+			return;
+		}
+		
+		var mock = "<li style=\"color: pl_color;\" tabindex=\"pl_id\">pl_name<span class\"key\">pl_score</span></li>";
+		var list = $("#player_list");
+		var players = world.players.slice();
+		list.children().detach();
+		
+		players.sort(function (a,b) {return b.score - a.score;});
+		
+		for(var l = 0; l < players.length; l++) {
+			var player = players[l];
+			var value = mock.replace("pl_id", l);
+			value = value.replace("pl_name", player.name);
+			value = value.replace("pl_score", player.score);
+			value = value.replace(/pl_color/gi, player.color);
+			list.append(value);
+		}
+		$('#info_text').text("Round: " + world.round + " of " + players.length*2);
+	}
 
 	function initial_scene() {
+		var names = ["Fred", "Greenle", "Pinkney", "Bluebell", "Willem", "Greydon"];
+		var colors = ["red", "green", "pink", "blue", "orange", "grey"];
+		var mock = "<li style=\"opacity: 0.7;color: pl_color;\" tabindex=\"pl_id\">pl_name<span class\"key\"></span><span class\"key\"></span></li>";
+		var players = new Array();
 		var list = $("#player_list");
 		list.children().detach();
-		players = new Array();
 		for(var l = 0; l < colors.length; l++) {
 			var value = mock.replace("pl_id", l);
+			value = value.replace("pl_name", names[l]);
 			value = value.replace(/pl_color/gi, colors[l]);
 			list.append(value);
 		}
@@ -43,13 +69,13 @@ charset:'utf-8' /} #{script id:'game', src:'game.js', charset:'utf-8' /}
 		$('#player_list li').click(function(e) {
 			if(!lock) {
 				lock = true;
-				$(this).css('opacity', 1.0);
 				selected.index = parseInt($(this).attr("tabindex"));
+				$('#player_list li').eq(selected.index).children().andSelf().css('opacity', 1.0);
 				var el = $(this).find('span');
 				el.eq(0).text("Press left key").css("color", "yellow").selectText();
 				selected.side = "left";
 				selected.player = {
-					name: colors[selected.index],
+					name: names[selected.index],
 					color: colors[selected.index],
 					left:0,
 					right:0
@@ -61,7 +87,7 @@ charset:'utf-8' /} #{script id:'game', src:'game.js', charset:'utf-8' /}
 		$(document).keydown(function(e) {
 			var code = e.keyCode || e.which;
 			if(code == 32) {//Start the game
-				if(!start || players.lenght < 2)
+				if(!start || players.length < 2)
 					return;
 				start = false;
 				var stage = $("#stage");
@@ -76,9 +102,7 @@ charset:'utf-8' /} #{script id:'game', src:'game.js', charset:'utf-8' /}
 					return;
 				}
 
-				play(canvas.getContext('2d'), players, function(world) {
-					//Update the interface
-				});
+				play(canvas.getContext('2d'), players, update_scores);
 				e.preventDefault();
 			} else if(lock) {// Assign key to a user
 				var el = $('#player_list li').eq(selected.index);
@@ -89,17 +113,28 @@ charset:'utf-8' /} #{script id:'game', src:'game.js', charset:'utf-8' /}
 					selected.side = "right";
 					e.preventDefault();
 				} else if(selected.side == "right") {
-					el.css('color', 'white');
 					el.find('span').eq(1).css('color', 'white').text(String.fromCharCode(code));
 					selected.player.right = code;
-					players.push(selected.player);
+					
+					if ( players.length == 0)
+						players.push(selected.player);
+						
+					for (var i=0; i < players.length; i++) {
+						var player = players[i];
+						if (player.name == selected.player.name){ 
+							players[i] = selected.player;
+							break;
+						} else if ((i + 1) == players.length) {
+							players.push(selected.player);
+						}
+					};
+					
 					lock = false;
 					e.preventDefault();
 				}
 			}
 		});
 	}
-
 
 	$(document).ready(function() {
 		initial_scene();
@@ -140,23 +175,21 @@ charset:'utf-8' /} #{script id:'game', src:'game.js', charset:'utf-8' /}
 		padding: 1px;
 	}
 	#player_list li {
-		opacity: 0.7;
 		padding: 10px;
 	}
 	#player_list li:nth-child(even) {
 		background-color: #A8A8A8;
 	}
 	#player_list li span {
-		position: relative;
+		width:30px;
 		margin: 0 0 0 30px;
 		color: white;
-		opacity: 0.5;
 	}
 </style>
 #{/set} <div id="stage"></div>
 <div id="controls">
-	<h1>Players</h1>
-	Click on player to activate
+	<h4>Achtung die Kurve!</h4>
+	<div id="info_text">Click on player to activate</div>
 	<form>
 		<ul id="player_list" style="list-style: none;"></ul>
 		<div style="clear: right;"></div>

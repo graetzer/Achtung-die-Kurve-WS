@@ -61,17 +61,17 @@ Player.prototype.calculateNextFrame = function(timePassed) {
 	//To reduce effect of different fps
 	switch (this.movement) {
 		case move.left:
-			this.setDirection(this.angle + (Math.PI / 80) * weight);
+			this.setDirection(this.angle + (Math.PI / 60) * weight);
 			break;
 
 		case move.right:
-			this.setDirection(this.angle - (Math.PI / 80) * weight);
+			this.setDirection(this.angle - (Math.PI / 60) * weight);
 			break;
 
 		default:
 			break;
 	}
-	weight = this.speed * 3 * (timePassed / frameLength);
+	weight = this.speed * 4 * (timePassed / frameLength);
 	this.x += this.deltaX * weight;
 	this.y += this.deltaY * weight;
 
@@ -79,44 +79,17 @@ Player.prototype.calculateNextFrame = function(timePassed) {
 	if(this.drawLine) {
 		this.path.push([this.x, this.y]);
 		if(this.lastGap >= 1000 / this.speed) {// Care about the occasional gaps
-			if(Math.floor(Math.random() * 11) % 3 == 0) {// 50% chance to get a gap
+			if(Math.floor(Math.random() * 10) % 3 == 0) {// 33% chance to get a gap
 				this.drawLine = false;
 				this.path.push(null);
 			}
 			this.lastGap = 0;
 		}
-	} else if(this.lastGap >= 180 / this.speed) {//The gaps should not increase through higher speed
+	} else if(this.lastGap >= 135 / this.speed) {//The gaps should not increase through higher speed
 		this.lastGap = 0;
 		// TODO maybe the gap size should be measured in real length, instead of passed time
 		this.drawLine = true;
 	}
-}
-var minDistance = 5;
-//Distance between players
-var minDistance2 = minDistance * minDistance;
-// Returns true if it collides
-Player.prototype.collision = function(players, world) {
-	//Checking for world bounds
-	if(this.x - this.radius < 0 || this.x + this.radius > world.width)
-		return true;
-	if(this.y - this.radius < 0 || this.y + this.radius > world.height)
-		return true;
-
-	for(var y = 0; y < players.length; y++) {
-		var path = players[y].path;
-		for(var i = 0; i < path.length; i++) {
-			if(path[i] != null) {
-				var divX = Math.pow(this.x - path[i][0], 2);
-				var divY = Math.pow(this.y - path[i][1], 2);
-
-				var distance = divX + divY - this.radius;
-				// Math.sqr(divX + divY) - this.radius
-				if(!(path === this.path && i > path.length - 25 / this.speed) && distance < minDistance2)
-					return true;
-			}
-		}
-	}
-	return false;
 }
 
 Player.prototype.draw = function(ctx) {
@@ -139,14 +112,38 @@ Player.prototype.draw = function(ctx) {
 	ctx.stroke();
 	ctx.closePath();
 
-	// Draw circle
+	// Draw player head
 	ctx.beginPath();
 	ctx.fillStyle = "yellow";
 	ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2, true);
-	// Outer circle
 	ctx.fill();
 	ctx.closePath();
 };
+
+// Returns true if it collides
+Player.prototype.collision = function(players, world) {
+	//Checking for world bounds
+	if(this.x - this.radius < 0 || this.x + this.radius > world.width)
+		return true;//crash
+	if(this.y - this.radius < 0 || this.y + this.radius > world.height)
+		return true;//crash
+
+	for(var t = 0; t < players.length; t++) {
+		var path = players[t].path;
+		for(var i = 2; i < path.length; i++) {
+			if(path[i] != null) {
+				var divX = Math.pow(this.x - path[i][0], 2);
+				var divY = Math.pow(this.y - path[i][1], 2);
+
+				var distance = Math.sqrt(divX + divY) - this.radius;//Not the accurate distance, but faster than with Math.sqr
+				// Math.sqr(divX + divY) - this.radius
+				if(!(path === this.path && i > path.length - 20 / this.speed) && distance <  players[t].radius)
+					return true;//crash
+			}
+		}
+	}
+	return false;//no crash
+}
 
 Player.prototype.handleKeydown = function(code) {
 	switch (code) {
@@ -189,8 +186,9 @@ var requestAnimationFrame = window.requestAnimationFrame || window.mozRequestAni
 
 var runStatus = {
 	notRunning : 0,
-	running : 1,
-	paused : 2
+	ready: 1,
+	running : 2,
+	paused : 3
 };
 
 // World
@@ -202,6 +200,7 @@ function World(context, updateInterfaceFn) {
 	this.height = context.canvas.height;
 
 	this.players = new Array();
+	this.round = 1;
 
 	//Timecode of the last frame painted
 	this.lastFrame = 0;
@@ -209,21 +208,21 @@ function World(context, updateInterfaceFn) {
 	function handleKeydown(e) {
 		var code = e.keyCode || e.which;
 
-		if(code == 32 && this.status == runStatus.notRunning) {
-			this.start();
-			e.preventDefault();
-		} else if(code == 32) {
-			this.pause();
-			e.preventDefault();
+		if(code == 32) {
+			if (this.status == runStatus.notRunning)
+				this.prepareStart();
+			else if (this.status == runStatus.ready)
+				this.start();
+			else
+				this.pause();
 		} else {
 			for(var i = 0; i < this.players.length; i++) {
 				var player = this.players[i];
-				if(player.handleKeydown(code)) {
-					e.preventDefault();
+				if(player.handleKeydown(code))
 					break;
-				}
-			}
+			}		
 		}
+		e.preventDefault();
 	}
 
 	function handleKeyup(e) {
@@ -231,10 +230,10 @@ function World(context, updateInterfaceFn) {
 		for(var i = 0; i < this.players.length; i++) {
 			var player = this.players[i];
 			if(player.handleKeyup(code)) {
-				e.preventDefault();
 				break;
 			}
 		}
+		e.preventDefault();
 	};
 
 	$(document).keydown(curry(handleKeydown, this));
@@ -242,6 +241,8 @@ function World(context, updateInterfaceFn) {
 }
 
 World.prototype.prepareStart = function() {
+	this.status = runStatus.ready;
+	this.context.clearRect(0, 0, this.width, this.height);
 	var pX = this.width / (this.players.length + 1);
 	var pY = this.height / (this.players.length + 1);
 	var div = Math.min(this.width, this.height)/(this.players.length + 3);
@@ -253,15 +254,20 @@ World.prototype.prepareStart = function() {
 		p.setDirection(Math.random() * 2 * Math.PI);
 		p.path = new Array();
 		p.alive = true;
-		p.score = 0;
+		
+		p.calculateNextFrame(80);
+		p.calculateNextFrame(120);
+		p.calculateNextFrame(1);
+		p.draw(this.context);
 	}
+	this.updateInterfaceFn(this);
 };
 
 World.prototype.start = function() {
-	if(this.status == runStatus.notRunning) {// If it's a new round
-		this.prepareStart();
-	}
-
+	// if(this.status == runStatus.notRunning) {// If it's a new round
+		// this.prepareStart();
+	// }
+// 
 	this.status = runStatus.running;
 
 	//Handle animation time
@@ -271,7 +277,7 @@ World.prototype.start = function() {
 		this.lastFrame = Date.now();
 
 	// Start
-	requestAnimationFrame(curry(this.draw, this));
+	requestAnimationFrame(curry(this.animate, this));
 };
 
 World.prototype.pause = function() {
@@ -288,19 +294,23 @@ World.prototype.pause = function() {
 	}
 };
 
-World.prototype.draw = function(timestamp) {
+World.prototype.animate = function(timestamp) {
 	if(this.status != runStatus.running)
 		return;
 
 	var timePassed = timestamp - this.lastFrame;
 	this.context.clearRect(0, 0, this.width, this.height);
 
+	var alive = 0;
 	var winner;
 	for(var i = 0; i < this.players.length; i++) {
 		var p = this.players[i];
 		p.draw(this.context);
 
 		if(p.alive) {
+			winner = p;
+			alive++;
+			
 			p.calculateNextFrame(timePassed);
 			p.alive = !p.collision(this.players, this);
 			//Care about scores
@@ -308,19 +318,21 @@ World.prototype.draw = function(timestamp) {
 				this.increaseScores();
 			}
 		}
-		if(p.score >= (this.players.length - 1) * 10)// There is a winner!
-			winner = p;
 	}
 	
-	if (winner) {
+	if (alive <= 1) {
 		this.status = runStatus.notRunning;
-		this.showWinner(winner);
+		this.round++;
+		if (this.round > this.players.length*2) {
+			this.showWinner(winner);
+		}
+		
 		return;
 	}
 		
 
 	this.lastFrame = timestamp;
-	requestAnimationFrame(curry(this.draw, this));
+	requestAnimationFrame(curry(this.animate, this));
 };
 
 World.prototype.increaseScores = function() {
@@ -329,6 +341,7 @@ World.prototype.increaseScores = function() {
 			this.players[i].score += 10;
 		}
 	}
+	this.updateInterfaceFn(this);
 	return false;
 	//Continue
 };
@@ -343,20 +356,24 @@ World.prototype.showWinner = function(player) {
 	this.context.font = "30pt Arial";
 	var textWidth = this.context.measureText(text).width;
 	this.context.fillText(text, (this.width - textWidth) / 2, this.height / 2 + 60);
+	for (var i=0; i < this.players.length; i++) {
+	  this.players[i].score = 0;
+	};
+	this.round = 1;
 }
 
-World.prototype.addPlayer = function(player) {
-	this.players.push(player);
-};
-
+var world;
 function play(context, players, updateInterfaceFn) {
-	var world = new World(context, updateInterfaceFn);
+	if (!world)
+		world = new World(context, updateInterfaceFn);
+	else
+		world.players = new Array();
 
 	for(var i = 0; i < players.length; i++) {
 		var p = new Player(players[i].name, players[i].color, players[i].left, players[i].right);
-		world.addPlayer(p);
+		world.players.push(p);
 	}
 
-	world.start();
+	world.prepareStart();
 	return world;
 }
