@@ -1,3 +1,9 @@
+/**
+ * @author Simon Grätzer Copyrigth (C) 2012
+ * @version 0.1
+ *
+ */
+
 // Helper for using partially applied functions
 function curry(fn, scope) {
 	var scope = scope || window;
@@ -6,12 +12,10 @@ function curry(fn, scope) {
 	};
 }
 
-shuffle = function(o){ //v1.0
+shuffle = function(o) {//v1.0
 	for(var j, x, i = o.length; i; j = parseInt(Math.random() * i), x = o[--i], o[i] = o[j], o[j] = x);
 	return o;
 };
-
-
 // Enum
 var move = {
 	straight : null,
@@ -27,8 +31,8 @@ function Player(name, color, leftKeycode, rightKeycode) {
 	this.rightKeycode = rightKeycode;
 
 	// The position
-	this.x = 0;
-	this.y = 0;
+	this.x = 0.0;
+	this.y = 0.0;
 
 	this.score = 0;
 	this.alive = true;
@@ -101,7 +105,7 @@ Player.prototype.calculateNextFrame = function(timePassed) {
 Player.prototype.draw = function(ctx) {
 	//Draw the path
 	ctx.beginPath();
-	ctx.lineWidth = this.radius * 2;
+	ctx.lineWidth = this.radius * 2 + 0.5;
 	ctx.strokeStyle = this.color;
 	for(var i = 0; i < this.path.length - 1; i++) {
 		if(this.path[i] != null) {
@@ -121,34 +125,41 @@ Player.prototype.draw = function(ctx) {
 	// Draw player head
 	ctx.beginPath();
 	ctx.fillStyle = "yellow";
-	ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2, true);
+	ctx.arc(this.x, this.y, this.radius + 0.5, 0, Math.PI * 2, true);
 	ctx.fill();
 	ctx.closePath();
 };
-
 // Returns true if it collides
 Player.prototype.collision = function(players, world) {
 	//Checking for world bounds
 	if(this.x - this.radius < 0 || this.x + this.radius > world.width)
-		return true;//crash
+		return true;
+	//crash
 	if(this.y - this.radius < 0 || this.y + this.radius > world.height)
-		return true;//crash
+		return true;
+	//crash
 
 	for(var t = 0; t < players.length; t++) {
 		var path = players[t].path;
-		for(var i = 2; i < path.length; i++) {
-			if(path[i] != null) {
+		for(var i = 1; i < path.length; i++) {
+			if(!path[i+1]) {//There is a gap,
+				i+=2;
+				continue;
+			} else if (path[i]){
 				var divX = Math.pow(this.x - path[i][0], 2);
 				var divY = Math.pow(this.y - path[i][1], 2);
 
-				var distance = Math.sqrt(divX + divY) - this.radius;//Not the accurate distance, but faster than with Math.sqr
+				var distance = Math.sqrt(divX + divY) - this.radius;
+				//Not the accurate distance, but faster than with Math.sqr
 				// Math.sqr(divX + divY) - this.radius
-				if(!(path === this.path && i > path.length - 20 / this.speed) && distance <  players[t].radius)
-					return true;//crash
+				if(!(players[t] === this && i > path.length - 10 / this.speed) && distance < players[t].radius)
+					return true;
+				//crash
 			}
 		}
 	}
-	return false;//no crash
+	return false;
+	//no crash
 }
 
 Player.prototype.handleKeydown = function(code) {
@@ -192,7 +203,7 @@ var requestAnimationFrame = window.requestAnimationFrame || window.mozRequestAni
 
 var runStatus = {
 	notRunning : 0,
-	ready: 1,
+	ready : 1,
 	running : 2,
 	paused : 3
 };
@@ -215,9 +226,9 @@ function World(context, updateInterfaceFn) {
 		var code = e.keyCode || e.which;
 
 		if(code == 32) {
-			if (this.status == runStatus.notRunning)
+			if(this.status == runStatus.notRunning)
 				this.prepareStart();
-			else if (this.status == runStatus.ready)
+			else if(this.status == runStatus.ready)
 				this.start();
 			else
 				this.pause();
@@ -226,7 +237,7 @@ function World(context, updateInterfaceFn) {
 				var player = this.players[i];
 				if(player.handleKeydown(code))
 					break;
-			}		
+			}
 		}
 		e.preventDefault();
 	}
@@ -242,6 +253,7 @@ function World(context, updateInterfaceFn) {
 		e.preventDefault();
 	};
 
+
 	$(document).off();
 	$(document).keydown(curry(handleKeydown, this));
 	$(document).keyup(curry(handleKeyup, this));
@@ -253,7 +265,7 @@ World.prototype.prepareStart = function() {
 	this.context.clearRect(0, 0, this.width, this.height);
 	var pX = this.width / (players.length + 1);
 	var pY = this.height / (players.length + 1);
-	var div = Math.min(this.width, this.height)/(players.length + 3);
+	var div = Math.min(this.width, this.height) / (players.length + 3);
 	for(var i = 0; i < players.length; i++) {
 		var p = players[i];
 		var r = Math.floor((Math.random() - 0.5) * div);
@@ -262,9 +274,10 @@ World.prototype.prepareStart = function() {
 		p.setDirection(Math.random() * 2 * Math.PI);
 		p.path = new Array();
 		p.alive = true;
-		
+
+		p.calculateNextFrame(40);
+		p.calculateNextFrame(40);
 		p.calculateNextFrame(80);
-		p.calculateNextFrame(120);
 		p.calculateNextFrame(1);
 		p.draw(this.context);
 	}
@@ -272,17 +285,14 @@ World.prototype.prepareStart = function() {
 };
 
 World.prototype.start = function() {
-	// if(this.status == runStatus.notRunning) {// If it's a new round
-		// this.prepareStart();
-	// }
-// 
 	this.status = runStatus.running;
 
 	//Handle animation time
-	if(window.mozAnimationStartTime)
-		this.lastFrame = window.mozAnimationStartTime;
-	else
-		this.lastFrame = Date.now();
+	this.lastFrame = window.mozAnimationStartTime || Date.now();
+	// if(window.mozAnimationStartTime)
+	// this.lastFrame = window.mozAnimationStartTime;
+	// else
+	// this.lastFrame = Date.now();
 
 	// Start
 	requestAnimationFrame(curry(this.animate, this));
@@ -310,36 +320,30 @@ World.prototype.animate = function(timestamp) {
 	this.context.clearRect(0, 0, this.width, this.height);
 
 	var alive = 0;
-	var winner;
 	for(var i = 0; i < this.players.length; i++) {
 		var p = this.players[i];
 		p.draw(this.context);
 
 		if(p.alive) {
-			winner = p;
-			alive++;
-			
 			p.calculateNextFrame(timePassed);
 			p.alive = !p.collision(this.players, this);
-			//Care about scores
-			if(!p.alive) {
+			if(p.alive) {
+				alive++;
+			} else {
 				this.increaseScores();
 			}
 		}
 	}
-	
-	if (alive <= 1) {
+
+	if(alive <= 1) {
 		this.status = runStatus.notRunning;
 		this.round++;
-		var l = this.players.length;
 		// The difference must be more than 20 points
-		if (this.round > l*2 && this.players[0].score >= this.players[1].score + 20) {
-			this.showWinner(winner);
+		this.players.sort(function(a, b) {return b.score - a.score;});
+		if(this.round > this.players.length * 2 && this.players[0].score >= this.players[1].score + 20) {
+			this.showWinner(this.players[0]);
 		}
-		
-		return;
 	}
-		
 
 	this.lastFrame = timestamp;
 	requestAnimationFrame(curry(this.animate, this));
@@ -351,10 +355,7 @@ World.prototype.increaseScores = function() {
 			this.players[i].score += 10;
 		}
 	}
-	this.players.sort(function (a,b) {return b.score - a.score;});
 	this.updateInterfaceFn(this);
-	return false;
-	//Continue
 };
 
 World.prototype.showWinner = function(player) {
@@ -367,15 +368,14 @@ World.prototype.showWinner = function(player) {
 	this.context.font = "30pt Arial";
 	var textWidth = this.context.measureText(text).width;
 	this.context.fillText(text, (this.width - textWidth) / 2, this.height / 2 + 60);
-	for (var i=0; i < this.players.length; i++) {
-	  this.players[i].score = 0;
+	for(var i = 0; i < this.players.length; i++) {
+		this.players[i].score = 0;
 	};
 	this.round = 1;
 }
-
 var world;
 function play(context, players, updateInterfaceFn) {
-	if (!world)
+	if(!world)
 		world = new World(context, updateInterfaceFn);
 	else
 		world.players = new Array();

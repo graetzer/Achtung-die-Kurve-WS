@@ -1,11 +1,8 @@
 #{extends 'main.html' /}
 #{set title:'Play Achtung die Kurve' /}
 #{set 'moreScripts'}
-#{script id:'sockets', src:'jquery.gracefulWebSocket.js', charset:'utf-8' /}
 #{script id:'game', src:'game.js', charset:'utf-8' /}
 <script type="text/javascript">
-
-
 	jQuery.fn.extend({
 		selectText : function() {
 			var text = $(this)[0];
@@ -26,29 +23,32 @@
 			return $(this);
 		}
 	})
-	
+
 	function update_scores(world) {
-		
+
 		var mock = "<li style=\"color: pl_color;\" tabindex=\"pl_id\">pl_name<span class\"key\">pl_score</span></li>";
 		var list = $("#player_list");
 		list.children().detach();
-		
-		for(var l = 0; l < world.players.length; l++) {
-			var player = world.players[l];
+
+		var players = world.players.slice();
+		players.sort(function(a, b) {
+			return b.score - a.score;
+		});
+		for(var l = 0; l < players.length; l++) {
+			var player = players[l];
 			var value = mock.replace("pl_id", l);
 			value = value.replace("pl_name", player.name);
 			value = value.replace("pl_score", player.score);
 			value = value.replace(/pl_color/gi, player.color);
 			list.append(value);
 		}
-		$('#info_text').text("Round: " + world.round)
-		.append('<br/>To win you have to play at least ' + world.players.length + ' rounds, and need 20 points lead');
+		$('#info_text').text("Round: " + world.round).append('<br/>To win you have to play at least ' + players.length * 2 + ' rounds, and need 20 points lead');
 	}
-	
+
 	function keyIsUsed(players, key) {
-		for (var i=0; i < players.length; i++) {
-		  if(players[i].left == key || players[i].right == key)
-		  	return true;
+		for(var i = 0; i < players.length; i++) {
+			if(players[i].left == key || players[i].right == key)
+				return true;
 		};
 		return false;
 	}
@@ -67,26 +67,29 @@
 			list.append(value);
 		}
 
-		var selected = {index:0, side:0, player:null};
-		
+		var selected = {
+			index : 0,
+			side : 0,
+			player : null
+		};
+
 		var lock = false;
 		$('#player_list li').click(function(e) {
 			if(!lock) {
 				lock = true;
 				selected.index = parseInt($(this).attr("tabindex"));
 				$('#player_list li').eq(selected.index).children().andSelf().css('opacity', 1.0);
-				var el = $(this).find('span');
-				el.eq(0).text("Press left key").css("color", "yellow").selectText();
+				$(this).find('span').eq(0).text("Press left key").css("color", "yellow").selectText();
 				selected.side = "left";
 				selected.player = {
-					name: names[selected.index],
-					color: colors[selected.index],
-					left:0,
-					right:0
+					name : names[selected.index],
+					color : colors[selected.index],
+					left : 0,
+					right : 0
 				};
-				for (var i=0; i < players.length; i++) {
-					if (players[i].name == selected.player.name){ 
-						players.splice(i,1);
+				for(var i = 0; i < players.length; i++) {
+					if(players[i].name == selected.player.name) {
+						players.splice(i, 1);
 						break;
 					}
 				};
@@ -98,7 +101,7 @@
 			if(code == 32) {//Start the game
 				if(lock || players.length < 2)
 					return;
-					
+
 				var stage = $("#stage");
 				var width = parseInt(stage.css("width").replace(/[^0-9]+/g, ''));
 				var height = parseInt(stage.css("height").replace(/[^0-9]+/g, ''));
@@ -130,64 +133,73 @@
 		});
 	}
 
+
 	$(document).ready(function() {
 		initial_scene();
 	});
 
 </script>
-#{/set} 
+#{/set}
 #{set 'moreStyles'}
 <style>
-	body, html {
-		width: 100%;
-		margin: 0;
-		padding: 0;
-		overflow: hidden;
-		font-family: Helvetica;
-		font-size: 15px;
-		background-color: black;
-		color: white;
-	}
-	h1 {
-		font-size: 20px;
-		margin: 20px 0 20px 0;
-	}
-	#stage {
-		border: 2px solid yellow;
-		margin: 5px auto;
-		position: relative;
-		width: 700px;
-		height: 700px;
-		float: left;
-		margin-left: 20px;
-	}
-	#controls {
-		position: relative;
-		float: left;
-		color: white;
-		margin-left: 25px;
-		width: 500px;
-	}
-	#player_list {
-		border: 1px white solid;
-		padding: 1px;
-	}
-	#player_list li {
-		padding: 10px;
-	}
-	#player_list li:nth-child(even) {
-		background-color: #000033;
-	}
-	#player_list li span {
-		width:30px;
-		margin: 0 0 0 30px;
-		color: white;
-	}
+body, html {
+	width:100%;
+	margin:0;
+	padding:0;
+	overflow:hidden;
+	font-family:Helvetica;
+	font-size:15px;
+	background-color:black;
+	color:white;
+}
+h1 {
+	font-size:20px;
+	margin:20px 0 20px 0;
+}
+#stage {
+	border:2px solid yellow;
+	margin:5px auto;
+	position:relative;
+	width:700px;
+	height:700px;
+	float:left;
+	margin-left:20px;
+}
+#controls {
+	float:left;
+	color:white;
+	margin-left:25px;
+	width:350px;
+}
+#player_list {
+	position:relative;
+	border:1px white solid;
+	padding:1px;
+}
+#player_list li {
+	padding:10px;
+}
+#player_list li:nth-child(even) {
+	background-color:#000033;
+}
+#player_list li span {
+	position:absolute;
+	width:100px;
+	color:white;
+}
+#player_list li span:first-child {
+	right:100px;
+}
+#player_list li span:last-child {
+	right:0px;
+}
 </style>
 #{/set} <div id="stage"></div>
 <div id="controls">
 	<h1>Achtung die Kurve!</h1>
-	<div id="info_text">Click on a player to choose keys</div>
+	<div id="info_text">
+		Click on a player to choose keys
+	</div>
 	<form>
 		<ul id="player_list" style="list-style: none;"></ul>
 		<div style="clear: right;"></div>
