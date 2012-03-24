@@ -10,6 +10,7 @@ eclipse
 log
 logs
 precompiled
+target
 tmp
 test-result
 eclipse
