@@ -1,0 +1,51 @@
+body, html {
+    width:100%;
+    margin:0;
+    padding:0;
+    overflow:hidden;
+    font-family:Helvetica;
+    font-size:15px;
+    background-color:black;
+    color:white;
+}
+h1 {
+    font-size:20px;
+    margin:20px 0 20px 0;
+}
+#stage {
+    border:2px solid yellow;
+    margin:5px auto;
+    position:relative;
+    width:700px;
+    height:700px;
+    float:left;
+    margin-left:20px;
+}
+#controls {
+    float:left;
+    color:white;
+    margin-left:25px;
+    width:350px;
+}
+#player_list {
+    position:relative;
+    border:1px white solid;
+    padding:1px;
+}
+#player_list li {
+    padding:10px;
+}
+#player_list li:nth-child(even) {
+    background-color:#000033;
+}
+#player_list li span {
+    position:absolute;
+    width:100px;
+    color:white;
+}
+#player_list li span:first-child {
+    right:100px;
+}
+#player_list li span:last-child {
+    right:0px;
+}
