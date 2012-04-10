@@ -7,15 +7,9 @@ import play.api.mvc.Action
 import play.api.mvc.Controller
 import play.api.mvc.WebSocket
 import play.api.Logger
-
 import views._
-
-object IDGen {
-  private var currentID:Int = -1
-  def genID:Int = {currentID += 1;currentID}
-}
-case class Player(id:Int, name:String, alive:Boolean)
-case class Game(id:Int, title:String, players:LinkedList[Player])
+import models._
+import play.api.libs.json._
 
 object Application extends Controller{
   
@@ -23,20 +17,17 @@ object Application extends Controller{
     Ok(html.index("abc"))
   }
   
-  def singleplayer = Action {Ok(html.singleplayer())}
+  def offline = Action {Ok(html.offline())}
   
-  def multiplayer = Action {Ok(html.multiplayer())}
+  def online = Action {Ok(html.online())}
   
-  def gameHub(username:String, gameID:Int) = WebSocket.using[String] { request => 
-  
-  // Log events to the console
-  val in = Iteratee.foreach[String](println).mapDone { _ =>
-    Logger.info("Disconnected")
+  def connect(name:String) = WebSocket.async[String] { r =>
+    Logger.info(name);
+    Game.connect(name);
   }
   
-  // Send a single 'Hello!' message
-  val out = Enumerator("Hello!")
-  
-  (in, out)
-}
+  def list = Action {
+      val data = JsArray(Game.games.map{name => Json.toJson(Map("name" -> name))})
+      Ok(data);
+   }
 }
